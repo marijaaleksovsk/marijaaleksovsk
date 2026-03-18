@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JW Conditional VMAP Playlist</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #f9fafb;
+    }
+    #jw-player {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="jw-player"></div>
+
+  <script src="https://cdn.jwplayer.com/libraries/M5LJlh8E.js"></script>
+  <script>
+    const MEDIA_IDS = ["Xz77pdGk", "mX41hbtb", "Z43FvwoR"];
+
+    const SHORT_TEMPLATE =
+      "https://ad.sxp.smartclip.net/select?s=test.web&vmap=pre&type=vast4:vmapuri&vodid=__item-mediaid__&ang_devset=36&ang_plrw=__player-width__&ang_plrh=__player-height__&ang_cntp=WDC&fwd_domein=24kitchennl&source=gmail-imap&ust=1653050095000000&usg=AOvVaw0omO-0MKfgtIjMwZgGygMV&cr_maxsec=31&iab=210&rnd=__random-number__&ang_ref=__page-url__&&ang_conlen=__item-duration__&fwd_ui=__item-mediaid__&fwd_program=__item-title__&vodid=__item-mediaid__&consent=__gdpr_consent__&gdpr=__gdpr__&fwd_mc23=xa2xa5,xa2xa6";
+
+    const LONG_TEMPLATE =
+      "https://ad.sxp.smartclip.net/select?s=test.web&vmap=pre,50p&type=vast4:vmapuri&vodid=__item-mediaid__&ang_devset=36&ang_plrw=__player-width__&ang_plrh=__player-height__&ang_cntp=WDC&fwd_domein=24kitchennl&source=gmail-imap&ust=1653050095000000&usg=AOvVaw0omO-0MKfgtIjMwZgGygMV&cr_maxsec=31&iab=210&rnd=__random-number__&ang_ref=__page-url__&&ang_conlen=__item-duration__&fwd_ui=__item-mediaid__&fwd_program=__item-title__&vodid=__item-mediaid__&consent=__gdpr_consent__&gdpr=__gdpr__&fwd_mc23=xa2xa5,xa2xa6";
+
+    const GDPR = "0";
+    const GDPR_CONSENT = "";
+
+    function fillMacros(template, values) {
+      let out = template;
+      for (const [macro, value] of Object.entries(values)) {
+        out = out.split(macro).join(encodeURIComponent(String(value ?? "")));
+      }
+      return out;
+    }
+
+    async function fetchPlaylistItem(mediaId) {
+      const res = await fetch("https://cdn.jwplayer.com/v2/media/" + encodeURIComponent(mediaId));
+      if (!res.ok) {
+        throw new Error("Media fetch failed for " + mediaId + ": " + res.status);
+      }
+
+      const data = await res.json();
+      const item = data && data.playlist && data.playlist[0];
+      if (!item) {
+        throw new Error("No playlist item found for " + mediaId);
+      }
+      return item;
+    }
+
+    async function init() {
+      const host = document.getElementById("jw-player");
+      const width = Math.max(1, Math.round(host.clientWidth || 640));
+      const height = Math.max(1, Math.round(host.clientHeight || 360));
+
+      const safePageUrl = location.protocol === "file:"
+        ? "https://localhost.local/vast-switch"
+        : location.href;
+
+      const rawItems = await Promise.all(MEDIA_IDS.map(fetchPlaylistItem));
+
+      const playlist = rawItems.map((item) => {
+        const duration = Number(item.duration);
+        const template = Number.isFinite(duration) && duration < 120 ? SHORT_TEMPLATE : LONG_TEMPLATE;
+
+        const adschedule = fillMacros(template, {
+          "__item-mediaid__": item.mediaid,
+          "__player-width__": width,
+          "__player-height__": height,
+          "__random-number__": Math.floor(Math.random() * 1e12),
+          "__page-url__": safePageUrl,
+          "__item-duration__": Number.isFinite(duration) ? duration : "",
+          "__item-title__": item.title || "",
+          "__gdpr_consent__": GDPR_CONSENT,
+          "__gdpr__": GDPR
+        });
+
+        return {
+          ...item,
+          adschedule
+        };
+      });
+
+      const player = jwplayer("jw-player");
+      player.setup({
+        playlist,
+        advertising: {
+          client: "vast"
+        },
+        autostart: false
+      });
+
+      player.on("adError", (e) => console.error("adError", e));
+      player.on("setupError", (e) => console.error("setupError", e));
+    }
+
+    init().catch((e) => console.error("init failed", e));
+  </script>
+</body>
+</html>
