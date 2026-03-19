@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vertical Video Experience</title>
+
+  <!--
+    This stylesheet ships with @jwplayer/vertical-video and is copied into
+    ./public/vendor during the Render build step.
+  -->
+  <link rel="stylesheet" href="./vendor/vertical-video-service.css" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    #vertical-video-container {
+      width: 100%;
+      max-width: 420px; /* natural width for a 9:16 experience */
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- The orchestrator mounts the carousel/fullscreen UI into this div -->
+  <div id="vertical-video-container"></div>
+
+  <script type="module">
+    import ServiceLoader from "./vendor/service-loader.js";
+
+    // Uses public demo media IDs so this runs without editing first.
+    const MEDIA_IDS = ["Xz77pdGk", "mX41hbtb", "Z43FvwoR"];
+
+    // 1) Wire the vertical-video service bundle.
+    const serviceLoader = ServiceLoader.getServiceLoader();
+    serviceLoader.addOverrides({
+      name: "vertical-video",
+      client: "./vendor/vertical-video.js"
+    });
+
+    // 2) Resolve the latest JW Player version from CDN.
+    async function resolvePlayerUrl() {
+      try {
+        const res = await fetch("https://ssl.p.jwpcdn.com/player/channel/v/8/production/package.json");
+        const data = await res.json();
+        return {
+          base: `//ssl.p.jwpcdn.com/player/v/${data.version}/`,
+          playerUrl: `//ssl.p.jwpcdn.com/player/v/${data.version}/jwplayer.js`
+        };
+      } catch (err) {
+        console.warn("[VV] Could not auto-resolve player version, falling back.", err);
+        return {
+          base: "//ssl.p.jwpcdn.com/player/v/8.34.2/",
+          playerUrl: "//ssl.p.jwpcdn.com/player/v/8.34.2/jwplayer.js"
+        };
+      }
+    }
+
+    // Fetches JW Platform media records and maps to PlaylistItem objects.
+    async function fetchPlaylistItems(mediaIds) {
+      const responses = await Promise.all(
+        mediaIds.map(async (mediaId) => {
+          const res = await fetch(`https://cdn.jwplayer.com/v2/media/${encodeURIComponent(mediaId)}`);
+          if (!res.ok) {
+            throw new Error(`Media fetch failed for ${mediaId}: ${res.status}`);
+          }
+          const data = await res.json();
+          const item = data?.playlist?.[0];
+          if (!item) {
+            throw new Error(`No playlist item found for ${mediaId}`);
+          }
+          return item;
+        })
+      );
+      return responses;
+    }
+
+    // 3) Build vertical-video config.
+    async function buildVerticalVideoConfig() {
+      const playlist = await fetchPlaylistItems(MEDIA_IDS);
+
+      return {
+        playlist,
+        experienceMode: "carousel",
+        playbackMode: "autoPlay",
+        autoPauseNonViewable: "contentOnly",
+        carousel: {
+          autostart: true,
+          maxVideosPerCarousel: 8
+        },
+        fullscreen: {
+          buttonsPosition: "bottom",
+          buttonsOrientation: "vertical",
+          titlePosition: "bottom",
+          mobileCloseButtonPosition: "viewport",
+          enableCaptions: true,
+          enableCtaButton: false,
+          ctaButtonText: "Learn More"
+        }
+      };
+    }
+
+    // 4) Standard JW Player setup options.
+    const jwplayerConfig = {
+      mute: true,
+      displaytitle: false,
+      displaydescription: false
+    };
+
+    // 5) Boot the experience.
+    (async () => {
+      const [{ base, playerUrl }, verticalVideoConfig] = await Promise.all([
+        resolvePlayerUrl(),
+        buildVerticalVideoConfig()
+      ]);
+
+      const verticalVideo = await serviceLoader.getService("vertical-video");
+      const orchestrator = await verticalVideo.register(
+        "orchestrator",
+        {
+          divId: "vertical-video-container",
+          verticalVideoConfig
+        },
+        {
+          playerUrl,
+          jwplayerConfig: {
+            ...jwplayerConfig,
+            base
+          }
+        }
+      );
+
+      await orchestrator.init();
+    })().catch((err) => {
+      console.error("[VV] Failed to initialize vertical video experience.", err);
+    });
+  </script>
+</body>
+</html>

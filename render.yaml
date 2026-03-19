@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: vertical-video-experience
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: public
+    pullRequestPreviewsEnabled: true
