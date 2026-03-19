@@ -1,0 +1,13 @@
+{
+  "name": "vertical-video-experience",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JW Player vertical video experience demo",
+  "scripts": {
+    "build": "mkdir -p public/vendor && cp index.html public/index.html && cp node_modules/@jwplayer/service-loader/dist/bin-esm/service-loader.js public/vendor/service-loader.js && cp node_modules/@jwplayer/vertical-video/dist/bin/vertical-video.js public/vendor/vertical-video.js && cp node_modules/@jwplayer/vertical-video/dist/vertical-video-service.css public/vendor/vertical-video-service.css"
+  },
+  "dependencies": {
+    "@jwplayer/service-loader": "latest",
+    "@jwplayer/vertical-video": "latest"
+  }
+}
