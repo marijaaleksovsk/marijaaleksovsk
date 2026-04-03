@@ -3,94 +3,69 @@ const path = require("path");
 const { SignJWT } = require("jose");
 
 const PORT = Number(process.env.PORT || 3000);
-const DEFAULT_JW_SITE_ID = "J9NOqzGU";
-const DEFAULT_DRM_POLICY_ID = "VbI1n33Q";
-const DEFAULT_PLAYLIST_ID = "jIFrRDZa";
-const DEFAULT_JWT_TTL_SECONDS = 300;
+const JWT_TTL_SECONDS = Number(process.env.JWT_TTL_SECONDS || 300);
+
+// Fixed values requested by user.
+const JW_SITE_ID = "J9NOqzGU";
+const JW_DRM_POLICY_ID = "VbI1n33Q";
+const JW_PLAYLIST_ID = "jIFrRDZa";
+const PLAYER_LIBRARY_URL = "https://cdn.jwplayer.com/libraries/mi9MJ9PC.js";
 
 const app = express();
-function getRuntimeConfig() {
-  return {
-    jwSiteId: process.env.JW_SITE_ID || DEFAULT_JW_SITE_ID,
-    jwDrmPolicyId: process.env.JW_DRM_POLICY_ID || DEFAULT_DRM_POLICY_ID,
-    jwPlaylistId: process.env.JW_PLAYLIST_ID || DEFAULT_PLAYLIST_ID,
-    jwApiSecret: process.env.JW_API_SECRET || "",
-    jwtTtlSeconds: Number(process.env.JWT_TTL_SECONDS || DEFAULT_JWT_TTL_SECONDS)
-  };
+
+function getApiSecret() {
+  return process.env.JW_API_SECRET || "";
 }
 
-async function buildSignedPlaybackUrl(mediaId, cfg) {
-  const requestPath = `/v2/sites/${cfg.jwSiteId}/media/${mediaId}/playback.json`;
-  const exp = Math.ceil(Date.now() / 1000) + cfg.jwtTtlSeconds;
-  const secret = new TextEncoder().encode(cfg.jwApiSecret);
-  const token = await new SignJWT({
-    drm_policy_id: cfg.jwDrmPolicyId,
-    resource: requestPath
-  })
+async function buildSignedPlaylistUrl(apiSecret) {
+  const requestPath = `/v2/playlists/${JW_PLAYLIST_ID}/drm/${JW_DRM_POLICY_ID}`;
+  const exp = Math.ceil(Date.now() / 1000) + JWT_TTL_SECONDS;
+  const secret = new TextEncoder().encode(apiSecret);
+
+  const token = await new SignJWT({ resource: requestPath })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setExpirationTime(exp)
     .sign(secret);
 
-  const signedPlaybackUrl =
+  const signedPlaylistUrl =
     `https://cdn.jwplayer.com${requestPath}` +
-    `?drm_policy_id=${encodeURIComponent(cfg.jwDrmPolicyId)}` +
-    `&token=${encodeURIComponent(token)}`;
+    `?token=${encodeURIComponent(token)}`;
 
-  return { signedPlaybackUrl, exp };
+  return { signedPlaylistUrl, exp };
 }
 
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true });
 });
 
-function sendPublicConfig(res) {
-  const cfg = getRuntimeConfig();
-  res.json({
-    site_id: cfg.jwSiteId,
-    drm_policy_id: cfg.jwDrmPolicyId,
-    playlist_id: cfg.jwPlaylistId,
-    playlist_url: `https://cdn.jwplayer.com/v2/playlists/${cfg.jwPlaylistId}`
-  });
-}
+// Called by frontend on EVERY page load for each user session.
+app.get("/api/bootstrap", async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  const jwApiSecret = getApiSecret();
 
-// Keep both routes for compatibility.
-app.get("/api/public-config", (_req, res) => sendPublicConfig(res));
-app.get("/api/player-config", (_req, res) => sendPublicConfig(res));
-
-app.get("/api/drm-playback-url", async (req, res) => {
-  const mediaId = req.query.media_id;
-  if (!mediaId || typeof mediaId !== "string") {
-    return res.status(400).json({
-      error: "Missing required query parameter: media_id"
-    });
-  }
-
-  if (!/^[A-Za-z0-9_-]+$/.test(mediaId)) {
-    return res.status(400).json({
-      error: "media_id contains invalid characters"
-    });
-  }
-
-  const cfg = getRuntimeConfig();
-
-  if (!cfg.jwApiSecret) {
+  if (!jwApiSecret) {
     return res.status(500).json({
-      error: "Server is missing JW_API_SECRET. Set env var in Render."
+      error: "JW_API_SECRET is missing. Store it as a server-side environment variable."
     });
   }
 
   try {
-    const signed = await buildSignedPlaybackUrl(mediaId, cfg);
+    const generatedAtUnix = Math.ceil(Date.now() / 1000);
+    const { signedPlaylistUrl, exp } = await buildSignedPlaylistUrl(jwApiSecret);
+
     return res.json({
-      site_id: cfg.jwSiteId,
-      drm_policy_id: cfg.jwDrmPolicyId,
-      media_id: mediaId,
-      signedPlaybackUrl: signed.signedPlaybackUrl,
-      expires_at_unix: signed.exp
+      site_id: JW_SITE_ID,
+      drm_policy_id: JW_DRM_POLICY_ID,
+      playlist_id: JW_PLAYLIST_ID,
+      player_library_url: PLAYER_LIBRARY_URL,
+      generated_at_unix: generatedAtUnix,
+      expires_at_unix: exp,
+      signed_drm_playlist_url: signedPlaylistUrl
     });
-  } catch (_err) {
-    return res.status(500).json({
-      error: "Failed to generate signed playback URL"
+  } catch (error) {
+    return res.status(502).json({
+      error: "Failed to generate DRM bootstrap payload",
+      detail: error.message
     });
   }
 });
