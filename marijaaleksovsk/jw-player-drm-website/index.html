@@ -51,6 +51,7 @@
       Default playback uses playlist ID <code>jIFrRDZa</code>.
       For DRM playback, provide a signed content URL containing
       <code>drm_policy_id=VbI1n33Q</code> and a JWT token.
+      The JWT token should be generated on each user request.
     </p>
     <div id="player"></div>
   </main>
@@ -58,16 +59,17 @@
   <script>
     const PLAYLIST_ID = "jIFrRDZa";
     const DRM_POLICY_ID = "VbI1n33Q";
+    const siteId = "J9NOqzGU";
 
     // Optional: set this directly to a signed Delivery API URL for DRM playback.
     // Format:
-    // https://cdn.jwplayer.com/v2/sites/{site_id}/media/{media_id}/playback.json?drm_policy_id=VbI1n33Q&token={JWT}
+    // https://cdn.jwplayer.com/v2/sites/J9NOqzGU/media/{media_id}/playback.json?drm_policy_id=VbI1n33Q&token={JWT}
+    // JWT should be generated server-side on each user request.
     const SIGNED_DRM_URL = "";
 
     // Optional query-string fallback for quick testing:
-    // ?site_id={site_id}&media_id={media_id}&token={JWT}
+    // ?media_id={media_id}&token={JWT}
     const params = new URLSearchParams(window.location.search);
-    const siteId = params.get("site_id");
     const mediaId = params.get("media_id");
     const token = params.get("token");
 
