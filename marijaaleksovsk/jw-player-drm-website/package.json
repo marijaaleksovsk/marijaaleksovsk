@@ -1,0 +1,14 @@
+{
+  "name": "jw-player-drm-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JW Player DRM demo with zero external deps",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:win": "powershell -ExecutionPolicy Bypass -File ./start-dev.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

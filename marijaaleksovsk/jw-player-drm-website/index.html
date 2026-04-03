@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JW DRM Playlist Demo</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 24px;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    #player {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+    #status {
+      margin-top: 12px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+  </style>
+  <script src="https://cdn.jwplayer.com/libraries/mi9MJ9PC.js"></script>
+</head>
+<body>
+  <main>
+    <h1>JW Player DRM Playlist</h1>
+    <div id="player"></div>
+    <div id="status">Loading player...</div>
+  </main>
+
+  <script>
+    function setStatus(message) {
+      const el = document.getElementById("status");
+      if (el) {
+        el.textContent = message;
+      }
+    }
+
+    async function init() {
+      // Called on every page load; backend generates JWT and signed URL per user request.
+      const response = await fetch("/api/bootstrap");
+      if (!response.ok) {
+        throw new Error("Bootstrap request failed: " + response.status);
+      }
+
+      const data = await response.json();
+      if (!data.signed_drm_playlist_url) {
+        throw new Error("Bootstrap did not return signed_drm_playlist_url");
+      }
+
+      jwplayer("player").setup({
+        playlist: data.signed_drm_playlist_url,
+        autostart: false
+      });
+
+      setStatus(
+        "Loaded playlist " +
+          data.playlist_id +
+          " with DRM policy " +
+          data.drm_policy_id +
+          ". JWT generated at " +
+          data.generated_at_unix +
+          "."
+      );
+    }
+
+    init().catch(function (err) {
+      console.error(err);
+      setStatus("Failed to load DRM playlist: " + err.message);
+    });
+  </script>
+</body>
+</html>
