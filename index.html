@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JW Player DRM Embed</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    main {
+      width: min(100%, 960px);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.5rem;
+    }
+    p {
+      margin: 0 0 16px;
+      line-height: 1.5;
+      color: #cbd5e1;
+    }
+    #player {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+    code {
+      background: #1e293b;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+  <script src="https://cdn.jwplayer.com/libraries/mi9MJ9PC.js"></script>
+</head>
+<body>
+  <main>
+    <h1>JW Player Cloud-Hosted Embed (DRM Ready)</h1>
+    <p>
+      Default playback uses playlist ID <code>jIFrRDZa</code>.
+      For DRM playback, provide a signed content URL containing
+      <code>drm_policy_id=VbI1n33Q</code> and a JWT token.
+    </p>
+    <div id="player"></div>
+  </main>
+
+  <script>
+    const PLAYLIST_ID = "jIFrRDZa";
+    const DRM_POLICY_ID = "VbI1n33Q";
+
+    // Optional: set this directly to a signed Delivery API URL for DRM playback.
+    // Format:
+    // https://cdn.jwplayer.com/v2/sites/{site_id}/media/{media_id}/playback.json?drm_policy_id=VbI1n33Q&token={JWT}
+    const SIGNED_DRM_URL = "";
+
+    // Optional query-string fallback for quick testing:
+    // ?site_id={site_id}&media_id={media_id}&token={JWT}
+    const params = new URLSearchParams(window.location.search);
+    const siteId = params.get("site_id");
+    const mediaId = params.get("media_id");
+    const token = params.get("token");
+
+    const playlistUrl = "https://cdn.jwplayer.com/v2/playlists/" + PLAYLIST_ID;
+    const generatedSignedUrl =
+      siteId && mediaId && token
+        ? "https://cdn.jwplayer.com/v2/sites/" +
+          encodeURIComponent(siteId) +
+          "/media/" +
+          encodeURIComponent(mediaId) +
+          "/playback.json?drm_policy_id=" +
+          encodeURIComponent(DRM_POLICY_ID) +
+          "&token=" +
+          encodeURIComponent(token)
+        : "";
+    const playbackSource = SIGNED_DRM_URL || generatedSignedUrl || playlistUrl;
+
+    jwplayer("player").setup({
+      playlist: playbackSource,
+      autostart: false
+    });
+
+    console.log("JW playback source:", playbackSource);
+    console.log("DRM Policy ID configured:", DRM_POLICY_ID);
+  </script>
+</body>
+</html>
