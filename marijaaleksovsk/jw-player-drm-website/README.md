@@ -54,3 +54,25 @@ JW_API_SECRET=your_real_secret npm start
 ```
 
 Open: `http://localhost:3000`
+
+## One-command dev script (Windows PowerShell)
+
+1. Copy the example file:
+
+```powershell
+Copy-Item .env.local.example .env.local
+```
+
+2. Edit `.env.local` and set your secret:
+
+```text
+JW_API_SECRET=your_real_jw_v1_property_api_secret
+```
+
+3. Run one command:
+
+```powershell
+npm run dev:windows
+```
+
+This script loads `JW_API_SECRET` from `.env.local` and starts the server, so you do not need to manually set env vars each time.
