@@ -53,6 +53,10 @@
       <code>drm_policy_id=VbI1n33Q</code> and a JWT token.
       The JWT token should be generated on each user request.
     </p>
+    <p>
+      Render URL example:
+      <code>https://YOUR-RENDER-SERVICE.onrender.com/?media_id=YOUR_MEDIA_ID</code>
+    </p>
     <div id="player"></div>
   </main>
 
@@ -60,40 +64,52 @@
     const PLAYLIST_ID = "jIFrRDZa";
     const DRM_POLICY_ID = "VbI1n33Q";
     const siteId = "J9NOqzGU";
-
-    // Optional: set this directly to a signed Delivery API URL for DRM playback.
-    // Format:
-    // https://cdn.jwplayer.com/v2/sites/J9NOqzGU/media/{media_id}/playback.json?drm_policy_id=VbI1n33Q&token={JWT}
-    // JWT should be generated server-side on each user request.
-    const SIGNED_DRM_URL = "";
-
-    // Optional query-string fallback for quick testing:
-    // ?media_id={media_id}&token={JWT}
     const params = new URLSearchParams(window.location.search);
     const mediaId = params.get("media_id");
-    const token = params.get("token");
 
     const playlistUrl = "https://cdn.jwplayer.com/v2/playlists/" + PLAYLIST_ID;
-    const generatedSignedUrl =
-      siteId && mediaId && token
-        ? "https://cdn.jwplayer.com/v2/sites/" +
-          encodeURIComponent(siteId) +
-          "/media/" +
-          encodeURIComponent(mediaId) +
-          "/playback.json?drm_policy_id=" +
-          encodeURIComponent(DRM_POLICY_ID) +
-          "&token=" +
-          encodeURIComponent(token)
-        : "";
-    const playbackSource = SIGNED_DRM_URL || generatedSignedUrl || playlistUrl;
 
-    jwplayer("player").setup({
-      playlist: playbackSource,
-      autostart: false
-    });
+    async function getSignedPlaybackUrl() {
+      if (!mediaId) {
+        return "";
+      }
 
-    console.log("JW playback source:", playbackSource);
-    console.log("DRM Policy ID configured:", DRM_POLICY_ID);
+      const response = await fetch(
+        "/api/drm-playback-url?media_id=" + encodeURIComponent(mediaId)
+      );
+
+      if (!response.ok) {
+        throw new Error("JWT request failed with status " + response.status);
+      }
+
+      const data = await response.json();
+      return data.signedPlaybackUrl || data.playbackUrl || data.playback_url || "";
+    }
+
+    async function initPlayer() {
+      let playbackSource = playlistUrl;
+
+      try {
+        const signedPlaybackUrl = await getSignedPlaybackUrl();
+        if (signedPlaybackUrl) {
+          playbackSource = signedPlaybackUrl;
+          console.log("Using signed DRM playback URL");
+        }
+      } catch (error) {
+        console.error("Falling back to playlist due to DRM URL error:", error);
+      }
+
+      jwplayer("player").setup({
+        playlist: playbackSource,
+        autostart: false
+      });
+
+      console.log("JW playback source:", playbackSource);
+      console.log("DRM Policy ID configured:", DRM_POLICY_ID);
+      console.log("Site ID configured:", siteId);
+    }
+
+    initPlayer().catch((error) => console.error("Player init failed:", error));
   </script>
 </body>
 </html>
