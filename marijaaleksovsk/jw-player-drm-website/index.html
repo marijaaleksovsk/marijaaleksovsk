@@ -48,9 +48,9 @@
   <main>
     <h1>JW Player Cloud-Hosted Embed (DRM Ready)</h1>
     <p>
-      Default playback uses playlist ID <code>jIFrRDZa</code>.
+      Default playback uses playlist ID <code id="playlist-id-label">loading...</code>.
       For DRM playback, provide a signed content URL containing
-      <code>drm_policy_id=VbI1n33Q</code> and a JWT token.
+      <code>drm_policy_id=<span id="drm-policy-label">loading...</span></code> and a JWT token.
       The JWT token should be generated on each user request.
     </p>
     <p>
@@ -61,13 +61,16 @@
   </main>
 
   <script>
-    const PLAYLIST_ID = "jIFrRDZa";
-    const DRM_POLICY_ID = "VbI1n33Q";
-    const siteId = "J9NOqzGU";
     const params = new URLSearchParams(window.location.search);
     const mediaId = params.get("media_id");
 
-    const playlistUrl = "https://cdn.jwplayer.com/v2/playlists/" + PLAYLIST_ID;
+    async function getPublicConfig() {
+      const response = await fetch("/api/player-config");
+      if (!response.ok) {
+        throw new Error("Public config request failed with status " + response.status);
+      }
+      return response.json();
+    }
 
     async function getSignedPlaybackUrl() {
       if (!mediaId) {
@@ -83,10 +86,21 @@
       }
 
       const data = await response.json();
-      return data.signedPlaybackUrl || data.playbackUrl || data.playback_url || "";
+      return data.signedPlaybackUrl || "";
     }
 
     async function initPlayer() {
+      const config = await getPublicConfig();
+      const playlistIdLabel = document.getElementById("playlist-id-label");
+      const drmPolicyLabel = document.getElementById("drm-policy-label");
+      if (playlistIdLabel) {
+        playlistIdLabel.textContent = config.playlist_id;
+      }
+      if (drmPolicyLabel) {
+        drmPolicyLabel.textContent = config.drm_policy_id;
+      }
+
+      const playlistUrl = config.playlist_url;
       let playbackSource = playlistUrl;
 
       try {
@@ -105,8 +119,8 @@
       });
 
       console.log("JW playback source:", playbackSource);
-      console.log("DRM Policy ID configured:", DRM_POLICY_ID);
-      console.log("Site ID configured:", siteId);
+      console.log("DRM Policy ID configured:", config.drm_policy_id);
+      console.log("Site ID configured:", config.site_id);
     }
 
     initPlayer().catch((error) => console.error("Player init failed:", error));
